@@ -16,6 +16,14 @@ impl Invader {
     }
     pub fn draw(&self) {
         if self.visible {
+            if self.row > 1 {
+                print!("\x1b[{};{}H", self.row - 2, self.col);
+                print!("    ");
+            }
+            if self.row == 3 {
+                print!("\x1b[{};{}H", 1, self.col);
+                print!("────");
+            }
             print!("\x1b[{};{}H", self.row - 1, self.col);
             print!("┌──┐");
             print!("\x1b[{};{}H", self.row, self.col);
@@ -28,7 +36,20 @@ impl Invader {
             print!("└──┘");
         }
     }
-    pub fn proceed(&mut self) {
-        self.row += 1;
+
+    pub fn move_forward(&mut self) {
+        if self.visible {
+            self.row += 1;
+        }
+    }
+
+    pub fn remove(&mut self) {
+        self.visible = false;
+        print!("\x1b[{};{}H", self.row - 2, self.col);
+        print!("    ");
+        print!("\x1b[{};{}H", self.row - 1, self.col);
+        print!("    ");
+        print!("\x1b[{};{}H", self.row + 1, self.col);
+        print!("────");
     }
 }

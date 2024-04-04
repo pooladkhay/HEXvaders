@@ -11,7 +11,7 @@ fn main() {
 
     thread::spawn(move || {
         let mut scene = scene::Scene::new();
-        scene.start();
+        scene.start(2);
     });
 
     rx.recv().expect("Could not receive from channel.");
