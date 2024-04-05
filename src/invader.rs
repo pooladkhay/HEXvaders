@@ -1,3 +1,8 @@
+use std::{io::Write, thread, time};
+
+use crate::assets::{INVADER_BOTTOM_BORDER, INVADER_SIDE_BORDER, INVADER_TOP_BORDER};
+
+#[derive(Clone, Copy)]
 pub struct Invader {
     pub value: u8,
     pub row: u16,
@@ -14,6 +19,7 @@ impl Invader {
             visible: true,
         }
     }
+
     pub fn draw(&self) {
         if self.visible {
             if self.row > 1 {
@@ -22,18 +28,24 @@ impl Invader {
             }
             if self.row == 3 {
                 print!("\x1b[{};{}H", 1, self.col);
-                print!("────");
+                print!("━━━━");
             }
             print!("\x1b[{};{}H", self.row - 1, self.col);
-            print!("┌──┐");
+            print!("{}", INVADER_TOP_BORDER);
             print!("\x1b[{};{}H", self.row, self.col);
             if self.value < 0x10 {
-                print!("\x1b[1m│0{:X}│\x1b[0m", self.value)
+                print!(
+                    "\x1b[1m{}0{:X}{}\x1b[0m",
+                    INVADER_SIDE_BORDER, self.value, INVADER_SIDE_BORDER
+                )
             } else {
-                print!("\x1b[1m│{:X}│\x1b[0m", self.value)
+                print!(
+                    "\x1b[1m{}{:X}{}\x1b[0m",
+                    INVADER_SIDE_BORDER, self.value, INVADER_SIDE_BORDER
+                )
             }
             print!("\x1b[{};{}H", self.row + 1, self.col);
-            print!("└──┘");
+            print!("{}", INVADER_BOTTOM_BORDER);
         }
     }
 
@@ -48,8 +60,31 @@ impl Invader {
         print!("\x1b[{};{}H", self.row - 2, self.col);
         print!("    ");
         print!("\x1b[{};{}H", self.row - 1, self.col);
+        print!(" ╳╳ ");
+        print!("\x1b[{};{}H", self.row, self.col);
         print!("    ");
-        print!("\x1b[{};{}H", self.row + 1, self.col);
-        print!("────");
+        self.flush_stdout_with_sleep();
+
+        print!("\x1b[{};{}H", self.row - 2, self.col - 1);
+        print!("╲    ╱");
+        print!("\x1b[{};{}H", self.row - 1, self.col);
+        print!("    ");
+        print!("\x1b[{};{}H", self.row, self.col - 1);
+        print!("╱    ╲");
+        self.flush_stdout_with_sleep();
+
+        print!("\x1b[{};{}H", self.row - 2, self.col - 1);
+        print!("      ");
+        print!("\x1b[{};{}H", self.row - 1, self.col);
+        print!("    ");
+        print!("\x1b[{};{}H", self.row, self.col - 1);
+        print!("      ");
+    }
+
+    fn flush_stdout_with_sleep(&self) {
+        std::io::stdout()
+            .flush()
+            .expect("Could not flush the stream to stdout.");
+        thread::sleep(time::Duration::from_millis(90));
     }
 }
