@@ -7,3 +7,11 @@ This is the terminal implementation of [Flippy Bit And The Attack Of The Hexadec
 ### Demo
 
 ![Demo](demo.gif)
+
+### Todo
+
+- [x] Base game
+- [x] Restart logic
+- [ ] Keep track of the highest score
+- [ ] Dynamically speed up the game at certain score points
+- [ ] Move all hard-coded ASCII characters and magic numbers to `assets.rs`
