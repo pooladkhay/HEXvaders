@@ -2,12 +2,12 @@ use core::time;
 use rand::Rng;
 use std::{collections::HashMap, io::Write, sync::mpsc::Receiver, thread};
 
-use crate::{arrow::Arrow, invader::Invader};
+use crate::{arrow::Arrow, assets::START_MESSAGE, invader::Invader};
 
 pub struct Game {
     screen_rows: u16,
     screen_cols: u16,
-    kb_rx: Receiver<usize>,
+    kb_rx: Receiver<u8>,
     input_buf: Vec<u8>,
     input_value: u8,
     current_score: usize,
@@ -26,7 +26,7 @@ impl Game {
     pub fn new(
         screen_rows: u16,
         screen_cols: u16,
-        kb_rx: Receiver<usize>,
+        kb_rx: Receiver<u8>,
         invader_distance: u16,
     ) -> Self {
         Self {
@@ -74,9 +74,28 @@ impl Game {
         }
     }
 
+    fn print_start_message(&self) {
+        print!(
+            "\x1b[{};{}H",
+            self.screen_rows / 2,
+            ((self.screen_cols / 2) as usize) - (START_MESSAGE.len() / 2)
+        );
+        print!("{}", START_MESSAGE);
+    }
+
+    fn remove_start_message(&self) {
+        print!("\x1b[{};{}H", self.screen_rows / 2, 2);
+        print!("\x1b[0K");
+        print!("\x1b[{};{}H", self.screen_rows / 2, self.screen_cols);
+        print!("┃");
+    }
+
     fn update_input(&mut self) {
         match self.kb_rx.try_recv() {
-            Ok(key_pressed) => self.input_buf[key_pressed] = self.input_buf[key_pressed] ^ 1,
+            Ok(raw_key) => {
+                let key_pressed: usize = (raw_key - b'1').into();
+                self.input_buf[key_pressed] = self.input_buf[key_pressed] ^ 1
+            }
             Err(_) => (),
         };
 
@@ -259,6 +278,17 @@ impl Game {
         let mut iter_counter = 0_usize;
 
         self.draw_canvas();
+        self.print_start_message();
+        self.flush_stdout();
+
+        loop {
+            if let Ok(key_pressed) = self.kb_rx.recv() {
+                if key_pressed == b' ' {
+                    self.remove_start_message();
+                    break;
+                }
+            }
+        }
 
         loop {
             if iter_counter % 800 == 0 {

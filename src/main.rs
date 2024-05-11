@@ -26,7 +26,7 @@ fn main() {
         .expect("Error setting Ctrl-C handler.");
     }
 
-    let (kb_tx, kb_rx) = channel::<usize>();
+    let (kb_tx, kb_rx) = channel::<u8>();
 
     thread::spawn(move || {
         let size = terminal_size();
@@ -57,8 +57,8 @@ fn main() {
                         .send(())
                         .expect("Could not send signal on ctrlc channel."),
 
-                    b'1'..=b'8' => kb_tx
-                        .send((raw_key - b'1').into())
+                    b'1'..=b'8' | b' ' => kb_tx
+                        .send(raw_key)
                         .expect("Could not send signal on kb channel."),
 
                     _ => (),
