@@ -2,7 +2,11 @@ use core::time;
 use rand::Rng;
 use std::{collections::HashMap, io::Write, sync::mpsc::Receiver, thread};
 
-use crate::{arrow::Arrow, assets::START_MESSAGE, invader::Invader};
+use crate::{
+    arrow::Arrow,
+    assets::{RESTART_MESSAGE, START_MESSAGE},
+    invader::Invader,
+};
 
 pub struct Game {
     screen_rows: u16,
@@ -12,11 +16,7 @@ pub struct Game {
     input_value: u8,
     current_score: usize,
     // highest_score: usize,
-
-    // from shooter
     arrows: Vec<Arrow>,
-
-    // from invader_army
     hex_values: HashMap<u8, bool>,
     invaders: Vec<Invader>,
     invader_distance: u16,
@@ -38,11 +38,19 @@ impl Game {
             current_score: 0,
             // highest_score: 0,
             arrows: Vec::new(),
-
             hex_values: HashMap::new(),
             invaders: Vec::new(),
             invader_distance,
         }
+    }
+
+    fn clear_data(&mut self) {
+        self.input_buf = vec![0; 8];
+        self.input_value = 0;
+        self.current_score = 0;
+        self.arrows = Vec::new();
+        self.hex_values = HashMap::new();
+        self.invaders = Vec::new();
     }
 
     fn draw_canvas(&self) {
@@ -81,13 +89,6 @@ impl Game {
             ((self.screen_cols / 2) as usize) - (START_MESSAGE.len() / 2)
         );
         print!("{}", START_MESSAGE);
-    }
-
-    fn remove_start_message(&self) {
-        print!("\x1b[{};{}H", self.screen_rows / 2, 2);
-        print!("\x1b[0K");
-        print!("\x1b[{};{}H", self.screen_rows / 2, self.screen_cols);
-        print!("┃");
     }
 
     fn update_input(&mut self) {
@@ -168,14 +169,20 @@ impl Game {
         for l in txt {
             print!(
                 "\x1b[{};{}H",
-                (self.screen_rows / 2) - 4 + c,
+                (self.screen_rows / 2) - 6 + c,
                 (self.screen_cols / 2) - 25
             );
             print!("{}", l);
             c += 1;
         }
 
-        println!("\x1b[{};{}H", self.screen_rows, self.screen_cols);
+        print!(
+            "\x1b[{};{}H",
+            (self.screen_rows / 2) - 4 + c,
+            ((self.screen_cols / 2) as usize) - (RESTART_MESSAGE.len() / 2)
+        );
+        print!("{}", RESTART_MESSAGE);
+        print!("\x1b[{};{}H", self.screen_rows, self.screen_cols);
     }
 
     fn flush_stdout(&self) {
@@ -284,48 +291,52 @@ impl Game {
         loop {
             if let Ok(key_pressed) = self.kb_rx.recv() {
                 if key_pressed == b' ' {
-                    self.remove_start_message();
-                    break;
-                }
-            }
-        }
-
-        loop {
-            if iter_counter % 800 == 0 {
-                if !self.invaders_move_forward() {
-                    self.game_over();
+                    self.draw_canvas();
                     self.flush_stdout();
-                    panic!("GAME OVER");
+                } else {
+                    continue;
                 }
             }
 
-            if iter_counter % 25 == 0 {
-                if let Some(shot_inv) = self.arrow_move_forward() {
-                    // An invader was shot
-                    self.remove_invader(shot_inv);
+            loop {
+                if iter_counter % 650 == 0 {
+                    if !self.invaders_move_forward() {
+                        // GAME OVER
+                        self.game_over();
+                        self.clear_data();
+                        self.flush_stdout();
+                        break;
+                    }
                 }
+
+                if iter_counter % 25 == 0 {
+                    if let Some(shot_inv) = self.arrow_move_forward() {
+                        // An invader was shot
+                        self.remove_invader(shot_inv);
+                    }
+                }
+
+                self.update_input();
+                self.draw_scoreboard();
+
+                // Anything to shoot?
+                if let Some(invader_to_shoot) = self.to_shoot() {
+                    self.shoot(invader_to_shoot);
+                    self.zero_input();
+
+                    self.current_score += 1;
+                }
+
+                self.flush_stdout();
+
+                // We don't need to worry about overflows here.
+                // Since the counter is incremented every 1ms,
+                // it would roughly take 585.67 billion years
+                // for an overflow to occur!
+                iter_counter += 1;
+
+                thread::sleep(time::Duration::from_millis(1));
             }
-
-            self.update_input();
-            self.draw_scoreboard();
-
-            // Anything to shoot?
-            if let Some(invader_to_shoot) = self.to_shoot() {
-                self.shoot(invader_to_shoot);
-                self.zero_input();
-
-                self.current_score += 1;
-            }
-
-            self.flush_stdout();
-
-            // We don't need to worry about overflows here.
-            // Since the counter is incremented every 1ms,
-            // it would roughly take 585.67 billion years
-            // for an overflow to occur!
-            iter_counter += 1;
-
-            thread::sleep(time::Duration::from_millis(1));
         }
     }
 }
