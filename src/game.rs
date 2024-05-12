@@ -4,7 +4,12 @@ use std::{collections::HashMap, io::Write, sync::mpsc::Receiver, thread};
 
 use crate::{
     arrow::Arrow,
-    assets::{RESTART_MESSAGE, START_MESSAGE},
+    assets::{
+        BITS_BOTTOM_BORDER, BITS_TOP_BORDER, BIT_SEP_BOTTOM, BIT_SEP_TOP, BOTTOM_L_CORNER,
+        BOTTOM_R_CORNER, GAME_OVER_TEXT, HORIZONTAL_LINE_BOLD, HORIZONTAL_LINE_REGULAR,
+        RESTART_MESSAGE, SCORE_BOARD_L, SCORE_BOARD_R, SHOOTER, START_MESSAGE, TOP_L_CORNER,
+        TOP_R_CORNER, VERTICAL_LINE_BOLD, VERTICAL_LINE_DOUBLE, VERTICAL_LINE_REGULAR,
+    },
     invader::Invader,
 };
 
@@ -60,24 +65,40 @@ impl Game {
 
         for row in 1..=self.screen_rows {
             if row == 1 {
-                print!("┏{}┓", "━".repeat((self.screen_cols - 2) as usize));
+                print!(
+                    "{}{}{}",
+                    TOP_L_CORNER,
+                    HORIZONTAL_LINE_BOLD.repeat((self.screen_cols - 2) as usize),
+                    TOP_R_CORNER
+                );
             } else if row == self.screen_rows {
                 print!(
-                    "┗━━━┷━━━┷━━━┷━━━┷━━━┷━━━┷━━━┷━━━┷{}┛",
-                    "━".repeat((self.screen_cols - 34) as usize)
+                    "{}{}{}{}",
+                    BOTTOM_L_CORNER,
+                    BITS_BOTTOM_BORDER,
+                    HORIZONTAL_LINE_BOLD.repeat((self.screen_cols - 34) as usize),
+                    BOTTOM_R_CORNER
                 );
             } else if row == self.screen_rows - 2 {
                 print!(
-                    "┠───┬───┬───┬───┬───┬───┬───┬───┬{}┨",
-                    "─".repeat((self.screen_cols - 34) as usize)
+                    "{}{}{}{}",
+                    SCORE_BOARD_L,
+                    BITS_TOP_BORDER,
+                    HORIZONTAL_LINE_REGULAR.repeat((self.screen_cols - 34) as usize),
+                    SCORE_BOARD_R
                 );
             } else if row == self.screen_rows - 3 {
-                print!("┃{}┃", "^".repeat((self.screen_cols - 2) as usize));
+                print!(
+                    "{}{}{}",
+                    VERTICAL_LINE_BOLD,
+                    SHOOTER.repeat((self.screen_cols - 2) as usize),
+                    VERTICAL_LINE_BOLD
+                );
             } else {
                 print!("\x1b[{};1H", row);
-                print!("┃");
+                print!("{}", VERTICAL_LINE_BOLD);
                 print!("\x1b[{};{}H", row, self.screen_cols);
-                print!("┃");
+                print!("{}", VERTICAL_LINE_BOLD);
             }
         }
     }
@@ -109,7 +130,7 @@ impl Game {
         print!("\x1b[{};2H", self.screen_rows - 1);
 
         for i in self.input_buf.iter() {
-            print!(" \x1b[1m{}\x1b[0m │", i)
+            print!(" \x1b[1m{}\x1b[0m {}", i, VERTICAL_LINE_REGULAR)
         }
 
         print!(
@@ -117,21 +138,21 @@ impl Game {
             self.screen_rows - 2,
             (self.screen_cols / 2) - 2
         );
-        print!("┰");
+        print!("{}", BIT_SEP_TOP);
         print!(
             "\x1b[{};{}H",
             self.screen_rows - 2,
             ((self.screen_cols / 2) - 2) + 5
         );
-        print!("┰");
+        print!("{}", BIT_SEP_TOP);
         print!("\x1b[{};{}H", self.screen_rows, (self.screen_cols / 2) - 2);
-        print!("┻");
+        print!("{}", BIT_SEP_BOTTOM);
         print!(
             "\x1b[{};{}H",
             self.screen_rows,
             ((self.screen_cols / 2) - 2) + 5
         );
-        print!("┻");
+        print!("{}", BIT_SEP_BOTTOM);
 
         print!(
             "\x1b[{};{}H",
@@ -139,9 +160,15 @@ impl Game {
             (self.screen_cols / 2) - 2
         );
         if self.input_value < 0x10 {
-            print!("║ \x1b[1m0{:X}\x1b[0m ║", self.input_value)
+            print!(
+                "{} \x1b[1m0{:X}\x1b[0m {}",
+                VERTICAL_LINE_DOUBLE, self.input_value, VERTICAL_LINE_DOUBLE
+            )
         } else {
-            print!("║ \x1b[1m{:X}\x1b[0m ║", self.input_value)
+            print!(
+                "{} \x1b[1m{:X}\x1b[0m {}",
+                VERTICAL_LINE_DOUBLE, self.input_value, VERTICAL_LINE_DOUBLE
+            )
         }
 
         print!("\x1b[{};{}H", self.screen_rows - 1, self.screen_cols - 10);
@@ -156,17 +183,9 @@ impl Game {
     fn game_over(&self) {
         self.draw_canvas();
         self.draw_scoreboard();
-        let txt = vec![
-            "  _____                         ____                 ",
-            " / ____|                       / __ \\                ",
-            "| |  __  __ _ _ __ ___   ___  | |  | |_   _____ _ __ ",
-            "| | |_ |/ _` | '_ ` _ \\ / _ \\ | |  | \\ \\ / / _ \\ '__|",
-            "| |__| | (_| | | | | | |  __/ | |__| |\\ V /  __/ |   ",
-            " \\_____|\\__,_|_| |_| |_|\\___|  \\____/  \\_/ \\___|_|   ",
-        ];
 
         let mut c = 0;
-        for l in txt {
+        for l in GAME_OVER_TEXT {
             print!(
                 "\x1b[{};{}H",
                 (self.screen_rows / 2) - 6 + c,
