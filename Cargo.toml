@@ -3,10 +3,16 @@ name = "hexvaders"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 terminal_size = "0.3.0"
 rand = "0.8.5"
 ctrlc = "3.4.4"
 termios = "0.3.3"
+
+[[bin]]
+name = "game"
+path = "src/game/main.rs"
+
+[[bin]]
+name = "srv"
+path = "src/srv/main.rs"
