@@ -12,11 +12,13 @@ use crate::{
         TOP_R_CORNER, VERTICAL_LINE_BOLD, VERTICAL_LINE_DOUBLE, VERTICAL_LINE_REGULAR,
     },
     invader::Invader,
+    InitData,
 };
 
 pub struct Game {
-    screen_rows: u16,
+    game_rows: u16,
     game_cols: u16,
+    is_multiplayer: bool,
     score_board_cols: u16,
     kb_rx: Receiver<u8>,
     input_buf: Vec<u8>,
@@ -30,18 +32,14 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(
-        screen_rows: u16,
-        game_cols: u16,
-        score_board_cols: u16,
-        kb_rx: Receiver<u8>,
-        invader_distance: u16,
-    ) -> Self {
+    pub fn new(init_data: InitData) -> Self {
         Self {
-            screen_rows,
-            game_cols,
-            score_board_cols,
-            kb_rx,
+            game_rows: init_data.game_rows,
+            game_cols: init_data.game_cols,
+            score_board_cols: init_data.score_board_cols,
+            is_multiplayer: init_data.is_multiplayer,
+            invader_distance: init_data.invader_distance,
+            kb_rx: init_data.kb_rx,
             input_buf: vec![0; 8],
             input_value: 0,
             current_score: 0,
@@ -49,7 +47,6 @@ impl Game {
             arrows: Vec::new(),
             hex_values: HashMap::new(),
             invaders: Vec::new(),
-            invader_distance,
         }
     }
 
@@ -65,7 +62,7 @@ impl Game {
     fn draw_score_board(&self) {
         print!("\x1b[1;{}H", self.game_cols); // move cursor to (1,self.game_cols)
 
-        for row in 1..=self.screen_rows {
+        for row in 1..=self.game_rows {
             if row == 1 {
                 print!("\x1b[{};{}H", row, self.game_cols);
                 print!(
@@ -84,7 +81,7 @@ impl Game {
                     SEP_SCORE_UP_R
                 );
                 self.flush_stdout();
-            } else if row == self.screen_rows {
+            } else if row == self.game_rows {
                 print!("\x1b[{};{}H", row, self.game_cols);
                 print!(
                     "{}{}{}",
@@ -93,7 +90,7 @@ impl Game {
                     BOTTOM_R_CORNER
                 );
                 self.flush_stdout();
-            } else if row == self.screen_rows - 2 {
+            } else if row == self.game_rows - 2 {
                 print!("\x1b[{};{}H", row, self.game_cols);
                 print!(
                     "{}{}{}",
@@ -116,7 +113,7 @@ impl Game {
     fn draw_game(&self) {
         print!("\x1b[1;1H",); // move cursor to (1,1)
 
-        for row in 1..=self.screen_rows {
+        for row in 1..=self.game_rows {
             if row == 1 {
                 print!("\x1b[{};1H", row);
                 print!(
@@ -126,7 +123,7 @@ impl Game {
                     TOP_R_CORNER
                 );
                 self.flush_stdout();
-            } else if row == self.screen_rows {
+            } else if row == self.game_rows {
                 print!("\x1b[{};1H", row);
                 print!(
                     "{}{}{}{}",
@@ -140,7 +137,7 @@ impl Game {
                     BOTTOM_R_CORNER
                 );
                 self.flush_stdout();
-            } else if row == self.screen_rows - 2 {
+            } else if row == self.game_rows - 2 {
                 print!("\x1b[{};1H", row);
                 print!(
                     "{}{}{}{}",
@@ -154,7 +151,7 @@ impl Game {
                     BOTTOM_BOARD_R
                 );
                 self.flush_stdout();
-            } else if row == self.screen_rows - 3 {
+            } else if row == self.game_rows - 3 {
                 print!("\x1b[{};1H", row);
                 print!(
                     "{}{}{}",
@@ -179,13 +176,16 @@ impl Game {
         print!("\x1b[2J",); // clear the screen
 
         self.draw_game();
-        self.draw_score_board();
+
+        if self.is_multiplayer {
+            self.draw_score_board();
+        }
     }
 
     fn print_start_message(&self) {
         print!(
             "\x1b[{};{}H",
-            self.screen_rows / 2,
+            self.game_rows / 2,
             ((self.game_cols / 2) as usize) - (START_MESSAGE.len() / 2)
         );
         print!("{}", START_MESSAGE);
@@ -206,38 +206,30 @@ impl Game {
     }
 
     fn draw_bottom_board(&self) {
-        print!("\x1b[{};2H", self.screen_rows - 1);
+        print!("\x1b[{};2H", self.game_rows - 1);
 
         for i in self.input_buf.iter() {
             print!(" \x1b[1m{}\x1b[0m {}", i, VERTICAL_LINE_REGULAR)
         }
 
-        print!(
-            "\x1b[{};{}H",
-            self.screen_rows - 2,
-            (self.game_cols / 2) - 2
-        );
+        print!("\x1b[{};{}H", self.game_rows - 2, (self.game_cols / 2) - 2);
         print!("{}", BIT_SEP_TOP);
         print!(
             "\x1b[{};{}H",
-            self.screen_rows - 2,
+            self.game_rows - 2,
             ((self.game_cols / 2) - 2) + 5
         );
         print!("{}", BIT_SEP_TOP);
-        print!("\x1b[{};{}H", self.screen_rows, (self.game_cols / 2) - 2);
+        print!("\x1b[{};{}H", self.game_rows, (self.game_cols / 2) - 2);
         print!("{}", SEP_BOTTOM);
         print!(
             "\x1b[{};{}H",
-            self.screen_rows,
+            self.game_rows,
             ((self.game_cols / 2) - 2) + 5
         );
         print!("{}", SEP_BOTTOM);
 
-        print!(
-            "\x1b[{};{}H",
-            self.screen_rows - 1,
-            (self.game_cols / 2) - 2
-        );
+        print!("\x1b[{};{}H", self.game_rows - 1, (self.game_cols / 2) - 2);
         if self.input_value < 0x10 {
             print!(
                 "{} \x1b[1m0{:X}\x1b[0m {}",
@@ -250,7 +242,7 @@ impl Game {
             )
         }
 
-        print!("\x1b[{};{}H", self.screen_rows - 1, self.game_cols - 10);
+        print!("\x1b[{};{}H", self.game_rows - 1, self.game_cols - 10);
         print!("\x1b[1mScore: {}\x1b[0m", self.current_score);
     }
 
@@ -267,7 +259,7 @@ impl Game {
         for l in GAME_OVER_TEXT {
             print!(
                 "\x1b[{};{}H",
-                (self.screen_rows / 2) - 6 + c,
+                (self.game_rows / 2) - 6 + c,
                 (self.game_cols / 2) - 25
             );
             print!("{}", l);
@@ -276,11 +268,11 @@ impl Game {
 
         print!(
             "\x1b[{};{}H",
-            (self.screen_rows / 2) - 4 + c,
+            (self.game_rows / 2) - 4 + c,
             ((self.game_cols / 2) as usize) - (RESTART_MESSAGE.len() / 2)
         );
         print!("{}", RESTART_MESSAGE);
-        print!("\x1b[{};{}H", self.screen_rows, self.game_cols);
+        print!("\x1b[{};{}H", self.game_rows, self.game_cols);
     }
 
     fn flush_stdout(&self) {
@@ -315,7 +307,7 @@ impl Game {
     }
 
     fn shoot(&mut self, target: Invader) {
-        let arrow = Arrow::new(self.screen_rows, target);
+        let arrow = Arrow::new(self.game_rows, target);
         self.arrows.push(arrow);
     }
 
@@ -357,7 +349,7 @@ impl Game {
             invader.draw();
             invader.move_forward();
 
-            if invader.row > self.screen_rows - 4 {
+            if invader.row > self.game_rows - 4 {
                 // GAME OVER
                 return false;
             }

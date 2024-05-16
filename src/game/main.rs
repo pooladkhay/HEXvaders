@@ -3,7 +3,7 @@ use ctrlc;
 use std::{
     io::{self, Read},
     os::fd::AsRawFd,
-    sync::mpsc::channel,
+    sync::mpsc::{channel, Receiver},
     thread,
 };
 use terminal_size::{terminal_size, Height, Width};
@@ -15,24 +15,42 @@ mod game;
 mod invader;
 mod score_board;
 
+pub struct InitData {
+    is_multiplayer: bool,
+    game_rows: u16,
+    game_cols: u16,
+    score_board_cols: u16,
+    kb_rx: Receiver<u8>,
+    invader_distance: u16,
+}
+
 fn main() {
-    let mut game_rows = 0u16;
-    let mut game_cols = 0u16;
-    let mut score_board_cols = 0u16;
+    let (ctrlc_tx, ctrlc_rx) = channel();
+    let (kb_tx, kb_rx) = channel::<u8>();
+
+    let mut init_data = InitData {
+        is_multiplayer: true,
+        game_rows: 0,
+        game_cols: 0,
+        score_board_cols: 0,
+        kb_rx,
+        invader_distance: 2,
+    };
 
     let term_size = terminal_size();
     if let Some((Width(screen_cols), Height(screen_rows))) = term_size {
         // game takes ~ 70% of the screen,
         // score board ~ 30% of the screen.
-        game_cols = (screen_cols * 70) / 100;
-        score_board_cols = screen_cols - game_cols;
-        game_rows = screen_rows
+        if init_data.is_multiplayer {
+            init_data.game_cols = (screen_cols * 70) / 100;
+            init_data.score_board_cols = screen_cols - init_data.game_cols;
+        } else {
+            init_data.game_cols = screen_cols;
+        }
+        init_data.game_rows = screen_rows
     } else {
         panic!("Unable to get terminal size.");
     }
-
-    let (ctrlc_tx, ctrlc_rx) = channel();
-    let (kb_tx, kb_rx) = channel::<u8>();
 
     {
         let ctrlc_tx = ctrlc_tx.clone();
@@ -45,10 +63,10 @@ fn main() {
     }
 
     thread::spawn(move || {
-        if game_cols < 80 || game_rows < 10 {
+        if init_data.game_cols < 80 || init_data.game_rows < 10 {
             panic!("The screen should at least contain 80 columns and 10 rows");
         }
-        let mut game = game::Game::new(game_rows, game_cols, score_board_cols, kb_rx, 2);
+        let mut game = game::Game::new(init_data);
         game.start();
     });
 
