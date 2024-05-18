@@ -1,4 +1,5 @@
-use std::{io::Write, thread, time};
+use std::io::{stdout, Write};
+use tokio::time::{sleep, Duration};
 
 use crate::assets::{INVADER_BOTTOM_BORDER, INVADER_SIDE_BORDER, INVADER_TOP_BORDER};
 
@@ -55,7 +56,7 @@ impl Invader {
         }
     }
 
-    pub fn remove(&mut self) {
+    pub async fn remove(&mut self) {
         self.visible = false;
         print!("\x1b[{};{}H", self.row - 2, self.col);
         print!("    ");
@@ -63,7 +64,7 @@ impl Invader {
         print!(" ╳╳ ");
         print!("\x1b[{};{}H", self.row, self.col);
         print!("    ");
-        self.flush_stdout_with_sleep();
+        self.flush_stdout_with_sleep().await;
 
         print!("\x1b[{};{}H", self.row - 2, self.col - 1);
         print!("╲    ╱");
@@ -71,7 +72,7 @@ impl Invader {
         print!("    ");
         print!("\x1b[{};{}H", self.row, self.col - 1);
         print!("╱    ╲");
-        self.flush_stdout_with_sleep();
+        self.flush_stdout_with_sleep().await;
 
         print!("\x1b[{};{}H", self.row - 2, self.col - 1);
         print!("      ");
@@ -81,10 +82,10 @@ impl Invader {
         print!("      ");
     }
 
-    fn flush_stdout_with_sleep(&self) {
-        std::io::stdout()
+    async fn flush_stdout_with_sleep(&self) {
+        stdout()
             .flush()
             .expect("Could not flush the stream to stdout.");
-        thread::sleep(time::Duration::from_millis(90));
+        sleep(Duration::from_millis(50)).await;
     }
 }

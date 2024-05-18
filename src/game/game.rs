@@ -1,6 +1,10 @@
-use core::time;
+// use crossbeam_channel::Receiver;
 use rand::Rng;
-use std::{collections::HashMap, io::Write, sync::mpsc::Receiver, thread};
+use std::{collections::HashMap, io::Write};
+use tokio::{
+    sync::mpsc::UnboundedReceiver,
+    time::{sleep, Duration},
+};
 
 use crate::{
     arrow::Arrow,
@@ -12,7 +16,7 @@ use crate::{
         TOP_R_CORNER, VERTICAL_LINE_BOLD, VERTICAL_LINE_DOUBLE, VERTICAL_LINE_REGULAR,
     },
     invader::Invader,
-    InitData,
+    GameData,
 };
 
 pub struct Game {
@@ -20,7 +24,7 @@ pub struct Game {
     game_cols: u16,
     is_multiplayer: bool,
     score_board_cols: u16,
-    kb_rx: Receiver<u8>,
+    kb_rx: UnboundedReceiver<u8>,
     input_buf: Vec<u8>,
     input_value: u8,
     current_score: usize,
@@ -32,7 +36,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(init_data: InitData) -> Self {
+    pub fn new(init_data: GameData) -> Self {
         Self {
             game_rows: init_data.game_rows,
             game_cols: init_data.game_cols,
@@ -205,7 +209,7 @@ impl Game {
         }
     }
 
-    fn draw_bottom_board(&self) {
+    fn update_bottom_board(&self) {
         print!("\x1b[{};2H", self.game_rows - 1);
 
         for i in self.input_buf.iter() {
@@ -246,6 +250,8 @@ impl Game {
         print!("\x1b[1mScore: {}\x1b[0m", self.current_score);
     }
 
+    // fn update_score_board(&self) {}
+
     fn zero_input(&mut self) {
         self.input_buf = vec![0; 8];
         self.input_value = 0;
@@ -253,7 +259,7 @@ impl Game {
 
     fn game_over(&self) {
         self.draw_canvas();
-        self.draw_bottom_board();
+        self.update_bottom_board();
 
         let mut c = 0;
         for l in GAME_OVER_TEXT {
@@ -357,30 +363,30 @@ impl Game {
         true
     }
 
-    fn remove_invader(&mut self, val: u8) {
+    async fn remove_invader(&mut self, val: u8) {
         self.hex_values.insert(val, false);
 
         let mut index_to_remove = 0;
         for (i, inv) in self.invaders.iter_mut().enumerate() {
             if inv.value == val {
                 index_to_remove = i;
-                inv.remove();
+                inv.remove().await;
             }
         }
 
         self.invaders.remove(index_to_remove);
     }
 
-    pub fn start(&mut self) {
+    pub async fn start(&mut self) {
         let mut iter_counter = 0_usize;
 
         self.draw_canvas();
-        self.draw_bottom_board();
+        self.update_bottom_board();
         self.print_start_message();
         self.flush_stdout();
 
         loop {
-            if let Ok(key_pressed) = self.kb_rx.recv() {
+            if let Some(key_pressed) = self.kb_rx.recv().await {
                 if key_pressed == b' ' {
                     self.draw_canvas();
                     self.flush_stdout();
@@ -403,12 +409,12 @@ impl Game {
                 if iter_counter % 25 == 0 {
                     if let Some(shot_inv) = self.arrow_move_forward() {
                         // An invader was shot
-                        self.remove_invader(shot_inv);
+                        self.remove_invader(shot_inv).await;
                     }
                 }
 
                 self.update_input();
-                self.draw_bottom_board();
+                self.update_bottom_board();
 
                 // Anything to shoot?
                 if let Some(invader_to_shoot) = self.to_shoot() {
@@ -426,7 +432,7 @@ impl Game {
                 // for an overflow to occur!
                 iter_counter += 1;
 
-                thread::sleep(time::Duration::from_millis(1));
+                sleep(Duration::from_micros(10)).await;
             }
         }
     }
