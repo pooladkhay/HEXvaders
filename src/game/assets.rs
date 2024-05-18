@@ -34,7 +34,7 @@ pub const SEP_BOTTOM: &str = "┻";
 pub const SEP_SCORE_UP_L: &str = "╟";
 pub const SEP_SCORE_UP_R: &str = "┨";
 pub const SEP_SCORE_DOWN_L: &str = "╫";
-pub const SEP_SCORE_DOWN_R: &str = "┨";
+pub const SEP_SCORE_DOWN_R: &str = SEP_SCORE_UP_R;
 
 // pub const BLAST_MIDDLE: &str = "╳╳";
 // pub const BLAST_DIAGONAL_UPPER_R_LOWER_L: &str = "╱";
